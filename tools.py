@@ -7,51 +7,306 @@ from langchain_core.tools import tool
 from tavily import TavilyClient
 tavily = TavilyClient()
 
+# @tool
+# def get_stock_financials(ticker: str) -> str:
+    
+#     """
+#     Fetch key fundamental financial metrics for a stock ticker.
+#     Returns P/E ratio, forward P/E, revenue growth (YoY), EPS (TTM),
+#     profit margin, debt-to-equity ratio, and free cash flow yield.
+#     Use this tool first to understand whether a company's fundamentals
+#     are strong before diving into price-based analysis.
+#     Works for both NSE tickers (e.g. RELIANCE.NS) and US tickers (e.g. AAPL).
+#     """
+#     try:
+#         stock = yf.Ticker(ticker)  # [4]
+#         info = stock.info
+#         financials = stock.financials
+#         balance_sheet = stock.balance_sheet
+#         cashflow = stock.cashflow
+        
+#         fundamentals = {
+#             "company_name": info.get("longName", ticker),
+#             "sector": info.get("sector", "N/A"),
+#             "market_cap_b": round(info.get("marketCap", 0) / 1e9, 2),
+#             "pe_ratio_ttm": info.get("trailingPE"),
+#             "pe_ratio_forward": info.get("forwardPE"),
+#             "eps_ttm": info.get("trailingEps"),
+#             "revenue_growth_yoy": info.get("revenueGrowth"),
+#             "earnings_growth_yoy": info.get("earningsGrowth"),
+#             "profit_margin": info.get("profitMargins"),
+#             "operating_margin": info.get("operatingMargins"),
+#             "debt_to_equity": debt_equity,
+#             try:
+#                total_debt = balance_sheet.loc["Total Debt"].iloc[0]
+#                equity = balance_sheet.loc["Stockholders Equity"].iloc[0]
+
+#                debt_equity = round(total_debt / equity, 2)
+#             except:
+#                debt_equity = None 
+#             "current_ratio": info.get("currentRatio"),
+#             "return_on_equity_pct": roe,
+#             try:
+#                net_income = financials.loc["Net Income"].iloc[0]
+#                shareholder_equity = balance_sheet.loc["Stockholders Equity"].iloc[0]
+
+#                roe = round(net_income / shareholder_equity * 100, 2)
+#             except:
+#                roe = None. 
+#             "free_cash_flow_b": round(free_cash_flow/1e9,2),
+#             try:
+#                operating_cf = cashflow.loc["Operating Cash Flow"].iloc[0]
+#                capex = abs(cashflow.loc["Capital Expenditure"].iloc[0])
+
+#                free_cash_flow = operating_cf - capex
+#             except:
+#                free_cash_flow = None
+#             "dividend_yield": info.get("dividendYield"),
+#             "52_week_high": info.get("fiftyTwoWeekHigh"),
+#             "52_week_low": info.get("fiftyTwoWeekLow"),
+#             "current_price": info.get("currentPrice"),
+#         }
+#         # Flag key concerns automatically
+#         concerns = []
+#         if fundamentals["debt_to_equity"] and fundamentals["debt_to_equity"] > 200:
+#             concerns.append("High debt-to-equity ratio - leverage risk")
+#         if fundamentals["profit_margin"] and fundamentals["profit_margin"] < 0:
+#             concerns.append("Negative profit margin - company is unprofitable")
+#         if fundamentals["revenue_growth_yoy"] and fundamentals["revenue_growth_yoy"] < -0.05:
+#             concerns.append("Revenue declining year-over-year")
+#         fundamentals["flagged_concerns"] = concerns
+#         return json.dumps(fundamentals, indent=2)
+#     except Exception as e:
+#         return json.dumps({"error": str(e), "ticker": ticker})
+
 @tool
 def get_stock_financials(ticker: str) -> str:
     """
-    Fetch key fundamental financial metrics for a stock ticker.
-    Returns P/E ratio, forward P/E, revenue growth (YoY), EPS (TTM),
-    profit margin, debt-to-equity ratio, and free cash flow yield.
-    Use this tool first to understand whether a company's fundamentals
-    are strong before diving into price-based analysis.
-    Works for both NSE tickers (e.g. RELIANCE.NS) and US tickers (e.g. AAPL).
+    Fetch and compute key financial metrics for a stock.
+
+    Computes:
+    - ROE
+    - ROCE
+    - Debt to Equity
+    - Free Cash Flow
+    - Quality Score
+
+    Works for both Indian (.NS) and US tickers.
     """
+
     try:
-        stock = yf.Ticker(ticker)  # [4]
+        # Automatically assume NSE ticker if no exchange suffix provided
+        if "." not in ticker:
+            ticker = ticker.upper() + ".NS"
+
+        stock = yf.Ticker(ticker)
+
         info = stock.info
-        fundamentals = {
-            "company_name": info.get("longName", ticker),
-            "sector": info.get("sector", "N/A"),
-            "market_cap_b": round(info.get("marketCap", 0) / 1e9, 2),
-            "pe_ratio_ttm": info.get("trailingPE"),
-            "pe_ratio_forward": info.get("forwardPE"),
-            "eps_ttm": info.get("trailingEps"),
-            "revenue_growth_yoy": info.get("revenueGrowth"),
-            "earnings_growth_yoy": info.get("earningsGrowth"),
-            "profit_margin": info.get("profitMargins"),
-            "operating_margin": info.get("operatingMargins"),
-            "debt_to_equity": info.get("debtToEquity"),
-            "current_ratio": info.get("currentRatio"),
-            "return_on_equity": info.get("returnOnEquity"),
-            "free_cashflow_b": round(info.get("freeCashflow", 0) / 1e9, 2),
-            "dividend_yield": info.get("dividendYield"),
-            "52_week_high": info.get("fiftyTwoWeekHigh"),
-            "52_week_low": info.get("fiftyTwoWeekLow"),
-            "current_price": info.get("currentPrice"),
-        }
-        # Flag key concerns automatically
+        financials = stock.financials
+        balance_sheet = stock.balance_sheet
+        cashflow = stock.cashflow
+
+        # -------------------------------------------------------
+        # Raw Financial Statement Calculations
+        # -------------------------------------------------------
+
+        try:
+            net_income = financials.loc["Net Income"].iloc[0]
+        except:
+            net_income = None
+
+        try:
+            shareholder_equity = balance_sheet.loc[
+                "Stockholders Equity"
+            ].iloc[0]
+        except:
+            shareholder_equity = None
+
+        try:
+            total_debt = balance_sheet.loc[
+                "Total Debt"
+            ].iloc[0]
+        except:
+            total_debt = None
+
+        try:
+            operating_cf = cashflow.loc[
+                "Operating Cash Flow"
+            ].iloc[0]
+        except:
+            operating_cf = None
+
+        try:
+            capex = abs(
+                cashflow.loc[
+                    "Capital Expenditure"
+                ].iloc[0]
+            )
+        except:
+            capex = None
+
+        try:
+            ebit = financials.loc["EBIT"].iloc[0]
+        except:
+            ebit = None
+
+        # -------------------------------------------------------
+        # Financial Ratios
+        # -------------------------------------------------------
+
+        roe = None
+        if net_income and shareholder_equity:
+            roe = round(
+                net_income / shareholder_equity * 100,
+                2
+            )
+
+        debt_equity = None
+        if total_debt and shareholder_equity:
+            debt_equity = round(
+                total_debt / shareholder_equity,
+                2
+            )
+
+        free_cash_flow = None
+        if operating_cf and capex:
+            free_cash_flow = operating_cf - capex
+
+        roce = None
+        if ebit and total_debt and shareholder_equity:
+            capital_employed = (
+                total_debt +
+                shareholder_equity
+            )
+
+            roce = round(
+                ebit /
+                capital_employed *
+                100,
+                2
+            )
+
+        # -------------------------------------------------------
+        # Quality Score
+        # -------------------------------------------------------
+
+        quality_score = 0
+
+        if roe and roe > 15:
+            quality_score += 25
+
+        if roce and roce > 15:
+            quality_score += 25
+
+        if debt_equity is not None and debt_equity < 0.5:
+            quality_score += 25
+
+        profit_margin = info.get("profitMargins")
+
+        if profit_margin and profit_margin > 0.10:
+            quality_score += 25
+
+        # -------------------------------------------------------
+        # Flag Concerns
+        # -------------------------------------------------------
+
         concerns = []
-        if fundamentals["debt_to_equity"] and fundamentals["debt_to_equity"] > 200:
-            concerns.append("High debt-to-equity ratio - leverage risk")
-        if fundamentals["profit_margin"] and fundamentals["profit_margin"] < 0:
-            concerns.append("Negative profit margin - company is unprofitable")
-        if fundamentals["revenue_growth_yoy"] and fundamentals["revenue_growth_yoy"] < -0.05:
-            concerns.append("Revenue declining year-over-year")
-        fundamentals["flagged_concerns"] = concerns
-        return json.dumps(fundamentals, indent=2)
+
+        if debt_equity and debt_equity > 2:
+            concerns.append(
+                "High leverage risk"
+            )
+
+        if profit_margin and profit_margin < 0:
+            concerns.append(
+                "Company currently unprofitable"
+            )
+
+        if info.get("revenueGrowth") and \
+           info["revenueGrowth"] < -0.05:
+            concerns.append(
+                "Revenue declining YoY"
+            )
+
+        # -------------------------------------------------------
+        # Final Output
+        # -------------------------------------------------------
+
+        fundamentals = {
+            "company_name":
+                info.get("longName", ticker),
+
+            "sector":
+                info.get("sector", "N/A"),
+
+            "market_cap_b":
+                round(
+                    info.get("marketCap", 0) / 1e9,
+                    2
+                ),
+
+            "current_price":
+                info.get("currentPrice"),
+
+            "trailing_pe":
+                info.get("trailingPE"),
+
+            "forward_pe":
+                info.get("forwardPE"),
+
+            "eps":
+                info.get("trailingEps"),
+
+            "revenue_growth":
+                info.get("revenueGrowth"),
+
+            "profit_margin":
+                profit_margin,
+
+            "operating_margin":
+                info.get("operatingMargins"),
+
+            "roe_pct":
+                roe,
+
+            "roce_pct":
+                roce,
+
+            "debt_to_equity":
+                debt_equity,
+
+            "free_cash_flow_b":
+                round(
+                    free_cash_flow / 1e9,
+                    2
+                ) if free_cash_flow else None,
+
+            "dividend_yield":
+                info.get("dividendYield"),
+
+            "52_week_high":
+                info.get("fiftyTwoWeekHigh"),
+
+            "52_week_low":
+                info.get("fiftyTwoWeekLow"),
+
+            "quality_score":
+                quality_score,
+
+            "flagged_concerns":
+                concerns
+        }
+
+        return json.dumps(
+            fundamentals,
+            indent=2
+        )
+
     except Exception as e:
-        return json.dumps({"error": str(e), "ticker": ticker})
+        return json.dumps({
+            "error": str(e),
+            "ticker": ticker
+        })
 
 @tool
 def get_news_sentiment(ticker: str) -> str:
@@ -117,6 +372,7 @@ def get_news_sentiment(ticker: str) -> str:
         return json.dumps(output, indent=2)
     except Exception as e:
         return json.dumps({"error": str(e), "ticker": ticker})
+
 
 @tool
 def get_technical_indicators(ticker: str) -> str:
@@ -197,54 +453,192 @@ def get_technical_indicators(ticker: str) -> str:
     except Exception as e:
         return json.dumps({"error": str(e), "ticker": ticker})
 
+# Nifty 500 sector representative tickers
+# These are liquid, well-covered stocks whose PE is reliable
+SECTOR_REPRESENTATIVES = {
+    "Energy": ["ONGC.NS", "IOC.NS", "BPCL.NS"],
+    "Technology": ["TCS.NS", "INFY.NS", "WIPRO.NS"],
+    "Financial Services": ["HDFCBANK.NS", "ICICIBANK.NS", "KOTAKBANK.NS"],
+    "Banks": ["HDFCBANK.NS", "ICICIBANK.NS", "SBIN.NS"],
+    "Healthcare": ["SUNPHARMA.NS", "DRREDDY.NS", "CIPLA.NS"],
+    "Consumer Defensive": ["HINDUNILVR.NS", "NESTLEIND.NS", "BRITANNIA.NS"],
+    "Consumer Cyclical": ["TITAN.NS", "MARUTI.NS", "BAJAJ-AUTO.NS"],
+    "Industrials": ["LT.NS", "SIEMENS.NS", "ABB.NS"],
+    "Basic Materials": ["JSWSTEEL.NS", "TATASTEEL.NS", "HINDALCO.NS"],
+    "Communication Services": ["BHARTIARTL.NS", "IDEA.NS"],
+    "Utilities": ["NTPC.NS", "POWERGRID.NS", "TATAPOWER.NS"],
+}
+
+def get_sector_pe(sector: str, exclude_ticker: str = None) -> float | None:
+    """
+    Compute median PE from representative peers in the same sector.
+    Excludes the stock being analysed to avoid circular comparison.
+    Returns None if data is insufficient.
+    """
+    peers = SECTOR_REPRESENTATIVES.get(sector, [])
+    pe_values = []
+
+    for peer_ticker in peers:
+        if peer_ticker == exclude_ticker:
+            continue
+        try:
+            peer_info = yf.Ticker(peer_ticker).info
+            pe = peer_info.get("trailingPE")
+            # Sanity filter: ignore negative or absurdly high PE
+            if pe and 7 < pe < 200:  # change 3 → 7
+               pe_values.append(pe)
+        except:
+            continue
+
+    if not pe_values:
+        return None
+
+    # Median is more robust than mean — one outlier won't skew it
+    pe_values.sort()
+    mid = len(pe_values) // 2
+    return round(pe_values[mid], 1)
+
 @tool
-def get_analyst_ratings(ticker: str) -> str:
+def get_valuation_analysis(ticker: str) -> str:
     """
-    Fetch current Wall Street / institutional analyst consensus ratings for a stock.
-    Returns the distribution of Strong Buy / Buy / Hold / Sell / Strong Sell
-    recommendations, the consensus, and the mean price target with implied
-    upside or downside from the current price.
-    Use this tool to understand what professional analysts collectively
-    think about the stock's near-term potential.
+    Perform relative valuation analysis for a stock.
+
+    Computes:
+    - P/E premium or discount relative to sector
+    - Valuation classification
+    - Market growth expectations
     """
+    # Conglomerate heuristic: if a company operates across 3+ industries,
+    # the sector PE comparison may be misleading
+    
     try:
-        stock = yf.Ticker(ticker)  # [4]
+        # Assume NSE ticker if no suffix provided
+        if "." not in ticker:
+            ticker = ticker.upper() + ".NS"
+
+        stock = yf.Ticker(ticker)
         info = stock.info
-        current_price = info.get("currentPrice", 0)
-        target_mean = info.get("targetMeanPrice")
-        target_high = info.get("targetHighPrice")
-        target_low = info.get("targetLowPrice")
-        recommendation = info.get("recommendationKey", "N/A").upper()
-        num_analysts = info.get("numberOfAnalystOpinions", 0)
-        implied_upside = None
-        if target_mean and current_price:
-            implied_upside = round((target_mean - current_price) / current_price * 100, 2)
-        rec_df = stock.recommendations
-        rec_summary = {}
-        if rec_df is not None and not rec_df.empty:
-            latest = rec_df.tail(1)
-            for col in ["strongBuy", "buy", "hold", "sell", "strongSell"]:
-                if col in latest.columns:
-                    rec_summary[col] = int(latest[col].values[0])
+
+        company_name = info.get("longName", ticker)
+        sector = info.get("sector", "Unknown")
+
+        pe_ratio = info.get("trailingPE")
+        pb_ratio = info.get("priceToBook")
+        peg_ratio = info.get("pegRatio")
+
+        # Approximate Indian sector averages
+        SECTOR_PE = {
+            "Technology": 28,
+            "Banks": 15,
+            "Financial Services": 18,
+            "Consumer Defensive": 55,
+            "Healthcare": 35,
+            "Energy": 12,
+            "Industrials": 25,
+            "Basic Materials": 18,
+            "Communication Services": 20,
+            "Utilities": 16,
+            "Consumer Cyclical": 30,
+        }
+
+        sector_pe = get_sector_pe(sector, exclude_ticker=ticker)
+        sector_pe_source = "computed from sector peers" if sector_pe else "unavailable"
+
+        premium_discount = None
+        valuation_label = "Unavailable"
+
+        if pe_ratio and sector_pe:
+            premium_discount = round(
+                (pe_ratio - sector_pe) / sector_pe * 100,
+                2
+            )
+
+            if premium_discount < -20:
+                valuation_label = "Significantly Undervalued"
+
+            elif premium_discount < -5:
+                valuation_label = "Undervalued"
+
+            elif premium_discount <= 10:
+                valuation_label = "Fairly Valued"
+
+            elif premium_discount <= 30:
+                valuation_label = "Expensive"
+
+            else:
+                valuation_label = "Highly Expensive"
+
+        # Reverse DCF Lite
+        if pe_ratio is None:
+            market_expectation = "Unavailable"
+
+        elif pe_ratio < 15:
+            market_expectation = (
+                "Market expects low growth or cyclicality."
+            )
+
+        elif pe_ratio < 25:
+            market_expectation = (
+                "Market expects moderate long-term growth."
+            )
+
+        elif pe_ratio < 40:
+            market_expectation = (
+                "Market expects strong earnings growth."
+            )
+
+        else:
+            market_expectation = (
+                "Market pricing in very aggressive future growth assumptions."
+            )
+
         output = {
             "ticker": ticker,
-            "current_price": current_price,
-            "consensus_recommendation": recommendation,
-            "number_of_analysts": num_analysts,
-            "price_target_mean": target_mean,
-            "price_target_high": target_high,
-            "price_target_low": target_low,
-            "implied_upside_pct": implied_upside,
-            "ratings_distribution": rec_summary,
+            "company_name": company_name,
+            "sector": sector,
+
+            "pe_ratio": pe_ratio,
+            "sector_average_pe": sector_pe,
+            "pe_premium_discount_pct": premium_discount,
+
+            "price_to_book": pb_ratio,
+            "peg_ratio": peg_ratio,
+
+            "valuation_label": valuation_label,
+            "market_expectation": market_expectation,
         }
+        CONGLOMERATE_KEYWORDS = [
+            "industries", "enterprises", "group", "holdings", "ventures"
+        ]
+        is_likely_conglomerate = any(
+            kw in company_name.lower() for kw in CONGLOMERATE_KEYWORDS
+        )
+
+        if is_likely_conglomerate:
+            output["sector_pe_reliability"] = (
+                "LOW - company name suggests conglomerate; "
+                "sector PE benchmark may not reflect true peer set"
+            )
+            output["valuation_label"] = (
+                "Unreliable - conglomerate; no valid sector benchmark"
+            )
+            output["pe_premium_discount_pct"] = None
+        else:
+            output["sector_pe_reliability"] = "HIGH"
+
         return json.dumps(output, indent=2)
+
     except Exception as e:
-        return json.dumps({"error": str(e), "ticker": ticker})
+        return json.dumps({
+            "ticker": ticker,
+            "error": str(e)
+        })
 
 # Register all tools for the agent
 TOOLS = [
     get_stock_financials,
     get_news_sentiment,
+    get_sector_pe,
     get_technical_indicators,
-    get_analyst_ratings,
+    get_valuation_analysis,   
 ]
