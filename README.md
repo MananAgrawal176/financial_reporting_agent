@@ -1,93 +1,154 @@
 # Financial Reporting Agent
 
-An AI-powered financial research agent that autonomously performs multi-dimensional equity analysis and generates institutional-style investment briefs.
+An AI-assisted equity research platform that combines financial statement analysis, valuation methodologies, technical indicators, and market sentiment to generate institutional-style investment reports for Indian and global equities.
 
-Built using **LangGraph**, **LangChain**, and **LLMs**, the agent combines:
-
-- Fundamental Analysis
-- Technical Analysis
-- News & Market Sentiment
-- Analyst Consensus
-
-to produce a single comprehensive investment report for any stock ticker.
+Unlike generic LLM stock summarizers, this project performs actual financial computations such as ROE, ROCE, Free Cash Flow, leverage analysis, and sector-relative valuation before generating recommendations.
 
 ---
 
 ## Features
 
-- Multi-agent research workflow using LangGraph
-- Automated tool calling for financial data retrieval
-- Structured investment recommendations
-- Institutional-style investment brief generation
-- Modular architecture for easy extension
-- Supports multiple LLM providers (OpenAI, Groq, etc.)
+### Financial Statement Analysis
 
----
+* Revenue Growth Analysis
+* Earnings Growth Analysis
+* Operating Margin Analysis
+* Net Margin Analysis
+* Debt-to-Equity Analysis
+* Free Cash Flow Analysis
+* Dividend Yield Analysis
 
-## Research Pipeline
+### Business Quality Assessment
 
-The agent follows the same workflow used by professional equity analysts:
+* Return on Equity (ROE)
+* Return on Capital Employed (ROCE)
+* Quality Score Generation
+* Capital Efficiency Analysis
+* Leverage Risk Assessment
 
-```text
-Stock Ticker
-     │
-     ▼
-Fundamental Analysis
-     │
-     ▼
-News Sentiment Analysis
-     │
-     ▼
-Technical Analysis
-     │
-     ▼
-Analyst Consensus
-     │
-     ▼
-Investment Brief Generation
-```
+### Valuation Engine
+
+* Sector-relative P/E Analysis
+* Premium / Discount Calculation
+* PEG Ratio Analysis
+* Price-to-Book Analysis
+* Market Expectation Inference
+* Valuation Reliability Assessment
+
+### Technical Analysis
+
+* RSI (14)
+* MACD
+* SMA50 / SMA200 Analysis
+* Golden Cross / Death Cross Detection
+* Volume Participation Analysis
+* Trend Strength Assessment
+
+### News Intelligence
+
+* Recent News Aggregation
+* Bullish/Bearish Signal Extraction
+* Narrative Detection
+* Market Sentiment Scoring
+
+### Recommendation Engine
+
+Combines:
+
+* Business Quality
+* Valuation
+* Technical Momentum
+* Market Sentiment
+
+to generate:
+
+* STRONG BUY
+* BUY
+* HOLD
+* SELL
+* STRONG SELL
+
+recommendations with confidence levels.
 
 ---
 
 ## Example Output
 
 ```text
-## Investment Brief: NVDA - NVIDIA Corporation
+## Investment Brief: RELIANCE - Reliance Industries Ltd.
 
-Recommendation: BUY
-Conviction: HIGH
+Recommendation: HOLD
+Conviction: MEDIUM
 
-Bull Case:
-- Strong AI infrastructure demand continues to drive growth.
-- Industry-leading margins and dominant market position.
+Business Quality Score: 25/100
 
-Bear Case:
-- Valuation remains significantly above historical averages.
-- AI spending slowdown could compress multiples.
+### Fundamental Snapshot
+- Revenue Growth: 12.5%
+- ROE: 8.9%
+- ROCE: 11.3%
+- Debt/Equity: 0.44
+- Free Cash Flow: ₹692B
 
-Fundamental Snapshot:
-- Revenue Growth: 69%
-- Gross Margin: 75%
-- P/E Ratio: 48x
-- Debt/Equity: 0.14
+### Technical Picture
+- RSI: 49.6
+- MACD: Bearish
+- Death Cross Active
+- Volume: 56% of average
 
-Technical Picture:
-- RSI: 61
-- Price above 50DMA and 200DMA
-- Positive MACD crossover
+### News Sentiment
+- Bullish (19 bullish vs 11 bearish signals)
 
-News Sentiment:
-- Positive AI demand narrative continues.
-- Strong data-center spending outlook.
+### Valuation Analysis
+- P/E: 21.9x
+- Sector P/E: 7.4x
+- PEG Ratio: 0.82
+- Valuation: Fairly Valued
 
-Analyst Consensus:
-- Majority Buy rating.
-- Average target price implies upside potential.
-
-Final Verdict:
-Strong business fundamentals combined with favourable momentum
-support a BUY recommendation despite elevated valuation.
+Final Recommendation: HOLD
 ```
+
+---
+
+## Research Workflow
+
+```text
+Ticker
+│
+├── Financial Statement Engine
+│   ├── ROE
+│   ├── ROCE
+│   ├── Free Cash Flow
+│   ├── Margins
+│   └── Leverage Analysis
+│
+├── Business Quality Engine
+│   └── Quality Score Generation
+│
+├── Valuation Engine
+│   ├── Relative P/E Analysis
+│   ├── PEG Ratio
+│   ├── Price-to-Book Ratio
+│   └── Market Growth Expectations
+│
+├── Technical Analysis Engine
+│
+├── News Intelligence Engine
+│
+└── LLM Investment Brief Generator
+```
+
+---
+
+## Tech Stack
+
+* Python
+* LangChain
+* LangGraph
+* Groq LLM API
+* yFinance
+* Pandas TA
+* Tavily Search
+* Python Dotenv
 
 ---
 
@@ -96,28 +157,20 @@ support a BUY recommendation despite elevated valuation.
 ```text
 financial_reporting_agent/
 │
-├── agent.py          # LLM configuration and tool binding
-├── graph.py          # LangGraph workflow definition
-├── state.py          # Shared graph state management
-├── tools.py          # Financial research tools
-├── main.py           # Entry point
+├── agent.py
+├── graph.py
+├── main.py
+├── state.py
+├── tools.py
+├── requirements.txt
 │
-├── demo_reports_generated/
-│   └── Sample generated reports
+├── reports/
+│   ├── Reliance_report.txt
+│   ├── TCS_report.txt
+│   └── ...
 │
 └── README.md
 ```
-
----
-
-## Technology Stack
-
-- Python
-- LangChain
-- LangGraph
-- OpenAI / Groq LLMs
-- Financial APIs
-- News APIs
 
 ---
 
@@ -136,72 +189,100 @@ Install dependencies:
 pip install -r requirements.txt
 ```
 
-Set environment variables:
+Create a `.env` file:
 
-```bash
-OPENAI_API_KEY=your_key_here
-GROQ_API_KEY=your_key_here
-TAVILY_API_KEY=your_key_here
+```env
+GROQ_API_KEY=your_api_key
+TAVILY_API_KEY=your_api_key
 ```
 
 ---
 
 ## Usage
 
-Run the agent:
+Generate a report for a single stock:
 
-```bash
-python main.py
+```python
+from main import research_stock
+
+report = research_stock(
+    "RELIANCE",
+    stream=False
+)
+
+print(report)
 ```
 
-Example:
+Generate reports for multiple companies:
 
-```text
-Enter ticker: AAPL
+```python
+from main import research_stock
+
+tickers = [
+    "RELIANCE",
+    "TCS",
+    "HDFCBANK",
+    "INFY"
+]
+
+for ticker in tickers:
+    report = research_stock(
+        ticker,
+        stream=False
+    )
+
+    with open(
+        f"{ticker}_report.txt",
+        "w",
+        encoding="utf-8"
+    ) as f:
+        f.write(report)
 ```
-
-The agent will automatically:
-
-1. Retrieve financial fundamentals
-2. Analyse recent news sentiment
-3. Perform technical analysis
-4. Check analyst expectations
-5. Generate an investment brief
 
 ---
 
-## Sample Use Cases
+## Philosophy
 
-- Equity research automation
-- Investment screening
-- Personal portfolio research
-- Financial education
-- Analyst productivity tools
+Most LLM stock agents simply summarize publicly available information.
+
+This project follows a structured equity research workflow:
+
+1. Understand business quality through financial statements.
+2. Evaluate valuation relative to peers and growth expectations.
+3. Assess technical momentum.
+4. Analyze market sentiment.
+5. Generate an evidence-backed investment recommendation.
+
+The LLM acts as an explanation layer rather than the source of investment decisions.
 
 ---
 
 ## Future Improvements
 
-- Portfolio-level analysis
-- Valuation models (DCF, Comparable Multiples)
-- Earnings call transcript analysis
-- SEC filing summarisation
-- Risk scoring framework
-- Backtesting recommendations
+* Discounted Cash Flow (DCF) Valuation
+* Reverse DCF
+* Piotroski F-Score
+* Altman Z-Score
+* Beneish M-Score
+* Three Statement Forecasting
+* Sector-Specific KPIs
+* Portfolio Optimization
+* Factor Investing Framework
 
 ---
 
 ## Author
 
 **Manan Agrawal**
-
 Chemical Engineering Undergraduate, IIT Bombay
 
-Interested in:
-- Quantitative Finance
-- AI Agents
-- Financial Modelling
-- Applied Machine Learning
+Interests:
+
+* Quantitative Finance
+* Equity Research
+* Financial Modelling
+* AI Agents
+* Financial Engineering
 
 ---
 
